@@ -52,8 +52,15 @@ namespace spbusTerminal
             {
                 //Если порт закрыт, прописываем в него параметры с формы и открываем
                 int[] BaudRate = { 300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200 };
-                _serialPort.PortName = Port_comboBox.Text;
+                //_serialPort.PortName = Port_comboBox.Text;
                 _serialPort.BaudRate = BaudRate[BaudRate_comboBox.SelectedIndex];
+                Parity[] port_parity = { Parity.Even, Parity.Mark, Parity.None, Parity.Odd, Parity.Space };
+                StopBits[] port_stopbits = { StopBits.None, StopBits.One, StopBits.OnePointFive, StopBits.Two };
+                int[] port_databits = { 5, 6, 7, 8 };
+                _serialPort.Parity = port_parity[Parity_comboBox.SelectedIndex];
+                _serialPort.StopBits = port_stopbits[StopBits_comboBox.SelectedIndex];
+                _serialPort.DataBits = port_databits[DataBits_comboBox.SelectedIndex];
+                /**
                 switch (Parity_comboBox.SelectedIndex)
                 {
                     case 0:
@@ -74,6 +81,7 @@ namespace spbusTerminal
                     default:
                         break;
                 }
+                
                 switch (StopBits_comboBox.SelectedIndex)
                 {
                     case 0:
@@ -105,7 +113,7 @@ namespace spbusTerminal
                     default:
                         break;
                 }
-
+                **/
                 _serialPort.Open();
 
                 if (_serialPort.IsOpen)
