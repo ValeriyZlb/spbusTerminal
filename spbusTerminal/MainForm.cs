@@ -141,19 +141,15 @@ namespace spbusTerminal
             byte FNC = byte.Parse(FNC_comboBox.Text, System.Globalization.NumberStyles.HexNumber);
 
             string SendMsg = Send_textBox.Text;
-            //SendMsg = SendMsg.Replace("HT", "\t");
-            //SendMsg = SendMsg.Replace("FF", "\f");
             SendMsg = SendMsg.Replace(" ", "\t");
             SendMsg = SendMsg.Replace("!", "\f");
             
             byte[] msg = bus.CreateMessage(DAD, SAD, FNC, SendMsg);
-            //for (int i = 0; i < msg.Length; i++)
-            //Console_textBox.AppendText(msg[i].ToString("X2") + " ");
+
             bus.StackClear();
             bus.AddToStack(msg);
             if(HEX_radioButton.Checked) Console_textBox.AppendText(bus.StackToHEX() + "\r\r\n");
             else if (Text_radioButton.Checked) Console_textBox.AppendText(bus.StackToString() + "\r\r\n");
-            //Console_textBox.AppendText(" => " + Port_comboBox.Text + "\r\r\n");
             bus.StackClear();
             if (_serialPort.IsOpen) _serialPort.Write(msg, 0, msg.Length);
             else MessageBox.Show("Порт не открыт", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
