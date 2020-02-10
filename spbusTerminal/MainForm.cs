@@ -7,6 +7,7 @@ namespace spbusTerminal
 {
     public partial class MainForm : Form
     {
+        // Объявляем переменную bus принадлежащую классу Spbus, доступную во всем коде
         Spbus bus = new Spbus();
         public MainForm()
         {
@@ -16,106 +17,69 @@ namespace spbusTerminal
         private void MainForm_Load(object sender, EventArgs e)
         {
             //Раскидываем управление по умолчанию на форме и
-            //Заполняем combobox-ы содержимым
+            //Строки ниже содержат списки возможных настроек COM порта, в combobox-ах
             string[] BaudRates = { "300", "600", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200" };
             string[] PortParity = { "Even", "Odd", "None", "Mark", "Space" };
-            string[] PortStopBits = { "1", "1.5", "2" };
+            string[] PortStopBits = { "0", "1", "1.5", "2" };
             string[] PortDataBits = { "5", "6", "7", "8" };
             string[] FNCs = { "18", "19", "21" };
+            //Заполнение combobox порта списком доступных для подключения портов, полученый методом GetPortNames 
             Port_comboBox.Items.AddRange(SerialPort.GetPortNames());
+            //Заполняем часть combobox-ов настроек порта (данными из массивов строк объявленых и инициализированных выше)
             BaudRate_comboBox.Items.AddRange(BaudRates);
             Parity_comboBox.Items.AddRange(PortParity);
             StopBits_comboBox.Items.AddRange(PortStopBits);
             DataBits_comboBox.Items.AddRange(PortDataBits);
             FNC_comboBox.Items.AddRange(FNCs);
-            //-------------------------------------------------------
-            if(Port_comboBox.Items.Count > 0) Port_comboBox.SelectedIndex = 1;
+            //Заполняем остальную часть combobox-ов настроек порта цифровыми значениями по умолчанию
             BaudRate_comboBox.SelectedIndex = 4;
             Parity_comboBox.SelectedIndex = 2;
-            StopBits_comboBox.SelectedIndex = 0;
+            StopBits_comboBox.SelectedIndex = 1;
             DataBits_comboBox.SelectedIndex = 3;
+            //Устанавливаем по умолчанию второй в списке COM-порт (для локальных тестов),
+            //только если он есть (второй порт), иначе ставим первый из списа, или блокируем кнопку если порты отсутствуют вовсе
+            if (Port_comboBox.Items.Count > 1) Port_comboBox.SelectedIndex = 1;
+            else if (Port_comboBox.Items.Count > 0) Port_comboBox.SelectedIndex = 0;
+            else OpenPort_button.Enabled = false;
+            //Установка настроек вида сообщений в консоли: в  шестнадцатиричном, или текстовом виде
             FNC_comboBox.SelectedIndex = 0;
             Text_radioButton.Checked = true;
-            //Send_textBox.Text = "HT0HT65530FFHT5HT2HT20HT8HT1HT0FF";
+            /**
+             * Send_textBox.Text = "HT0HT65530FFHT5HT2HT20HT8HT1HT0FF"; //Первый вариант форматирования сообщений
+             * Собираем строку запроса
+             * Поле DataSet состоит из двух указателей. Первый имеет следующую структуру:
+             * HT Ссылочный номер канала HT Ссылочный номер параметра FF
+             * Временной срез определяется вторым указателем. Его структура такова:
+             * HT День HT Месяц HT Год HT Час HT Минуты HT Секунды FF
+             * Формат запроса = пробел - HT (09h), ! - FF (0Ch)
+             *  HT_Channel_HT_Parameter_FFHT_Day_HT_Mounth_HT_Year_HT_Hour_HT_Minutes_HT_Seconds_FF
+             *  где Channel -канал, Parameter - параметр, Day - день, Mounth - месяц, Year - год, Hour - часы, Minutes - минуты, Seconds - секунды
+            **/
             Send_textBox.Text = " 0 65530! 5 2 20 8 1 0!";
-            //Пытаемся собрать строку запроса
-            //Поле DataSet состоит из двух указателей. Первый имеет следующую структуру:
-            //HT Ссылочный номер канала HT Ссылочный номер параметра FF
-            //Временной срез определяется вторым указателем. Его структура такова:
-            //HT День HT Месяц HT Год HT Час HT Минуты HT Секунды FF
-
         }
 
         private void OpenPort_button_Click(object sender, EventArgs e)
         {
             if (!_serialPort.IsOpen)
             {
+                /**
+                 * Действия совершаеые при нажатии кнопки Open (открытие порта)
+                **/
                 //Если порт закрыт, прописываем в него параметры с формы и открываем
                 int[] BaudRate = { 300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200 };
-                //_serialPort.PortName = Port_comboBox.Text;
-                _serialPort.BaudRate = BaudRate[BaudRate_comboBox.SelectedIndex];
+                int[] port_databits = { 5, 6, 7, 8 };
                 Parity[] port_parity = { Parity.Even, Parity.Mark, Parity.None, Parity.Odd, Parity.Space };
                 StopBits[] port_stopbits = { StopBits.None, StopBits.One, StopBits.OnePointFive, StopBits.Two };
-                int[] port_databits = { 5, 6, 7, 8 };
+                _serialPort.PortName = Port_comboBox.Text;
+                _serialPort.BaudRate = BaudRate[BaudRate_comboBox.SelectedIndex];
                 _serialPort.Parity = port_parity[Parity_comboBox.SelectedIndex];
                 _serialPort.StopBits = port_stopbits[StopBits_comboBox.SelectedIndex];
                 _serialPort.DataBits = port_databits[DataBits_comboBox.SelectedIndex];
-                /**
-                switch (Parity_comboBox.SelectedIndex)
-                {
-                    case 0:
-                        _serialPort.Parity = Parity.Even;
-                        break;
-                    case 1:
-                        _serialPort.Parity = Parity.Odd;
-                        break;
-                    case 2:
-                        _serialPort.Parity = Parity.None;
-                        break;
-                    case 3:
-                        _serialPort.Parity = Parity.Mark;
-                        break;
-                    case 4:
-                        _serialPort.Parity = Parity.Space;
-                        break;
-                    default:
-                        break;
-                }
-                
-                switch (StopBits_comboBox.SelectedIndex)
-                {
-                    case 0:
-                        _serialPort.StopBits = StopBits.One;
-                        break;
-                    case 1:
-                        _serialPort.StopBits = StopBits.OnePointFive;
-                        break;
-                    case 2:
-                        _serialPort.StopBits = StopBits.Two;
-                        break;
-                    default:
-                        break;
-                }
-                switch (DataBits_comboBox.SelectedIndex)
-                {
-                    case 0:
-                        _serialPort.DataBits = 5;
-                        break;
-                    case 1:
-                        _serialPort.DataBits = 6;
-                        break;
-                    case 2:
-                        _serialPort.DataBits = 7;
-                        break;
-                    case 3:
-                        _serialPort.DataBits = 8;
-                        break;
-                    default:
-                        break;
-                }
-                **/
+                //Открываем порт
                 _serialPort.Open();
-
+                //Если порт благополучно открывается делаем кнопку открытия недоступной,
+                //а кнопку закрытия напротив доступной, а в консоль выводим сообщение
+                //с датой и временем открытия порта
                 if (_serialPort.IsOpen)
                 {
                     OpenPort_button.Enabled = false;
@@ -127,6 +91,8 @@ namespace spbusTerminal
 
         private void ClosePort_button_Click(object sender, EventArgs e)
         {
+            //Если CJOM-порт открыт то закрываем его и выводим в консоль сообщение об этом,
+            //а кнопку закрытия делаем неактивной, а открытия активной
             if (_serialPort.IsOpen)
             {
                 _serialPort.Close();
@@ -138,27 +104,45 @@ namespace spbusTerminal
 
         private void Send_button_Click(object sender, EventArgs e)
         {
-            //Пытаемся собрать строку запроса
-            //Поле DataSet состоит из двух указателей. Первый имеет следующую структуру:
-            //HT Ссылочный номер канала HT Ссылочный номер параметра FF
-            //Временной срез определяется вторым указателем. Его структура такова:
-            //HT День HT Месяц HT Год HT Час HT Минуты HT Секунды FF
+            /**
+             * Собираем строку запроса
+             * Поле DataSet состоит из двух указателей. Первый имеет следующую структуру:
+             * HT Ссылочный номер канала HT Ссылочный номер параметра FF
+             * Временной срез определяется вторым указателем. Его структура такова:
+             * HT День HT Месяц HT Год HT Час HT Минуты HT Секунды FF
+             * Формат запроса = пробел - HT (09h), ! - FF (0Ch)
+             *  HT_Channel_HT_Parameter_FFHT_Day_HT_Mounth_HT_Year_HT_Hour_HT_Minutes_HT_Seconds_FF
+             *  где Channel -канал, Parameter - параметр, Day - день, Mounth - месяц, Year - год, Hour - часы, Minutes - минуты, Seconds - секунды
+            **/
 
+            //Инициалиируем переменные адресов данные из полей на форме,
+            //К адресы SAD побитово добавляем 128, или 80h
+            //А поле FNC переводим из шестнадцатиричной системы в десятичную
             byte SAD = (byte)((byte)SAD_numericUpDown.Value | 0x80);
             byte DAD = (byte)DAD_numericUpDown.Value;
             byte FNC = byte.Parse(FNC_comboBox.Text, System.Globalization.NumberStyles.HexNumber);
 
+            //Инициализируеем строку сообщения из соответствующего текстового поля на форме
+            //и заменяем в ней пробелы на \t (09h), а знаки ! на \f (0Ch)
             string SendMsg = Send_textBox.Text;
             SendMsg = SendMsg.Replace(" ", "\t");
             SendMsg = SendMsg.Replace("!", "\f");
             
+            //Вызываем метод CreateMessage для создания цельного сообщения из кусочков
+            //и записываем его в байтовый массив msg
             byte[] msg = bus.CreateMessage(DAD, SAD, FNC, SendMsg);
 
+            //Вызываем методы очищения стека и  добавляем туда сообщение
             bus.StackClear();
             bus.AddToStack(msg);
+            //Если выбран режим отображения в шестнадцатиричном виде то выводим содержимое стека в виде
+            //шестнадцаричных чисел, иначе в текстовом виде
             if(HEX_radioButton.Checked) Console_textBox.AppendText(bus.StackToHEX() + "\r\r\n");
             else if (Text_radioButton.Checked) Console_textBox.AppendText(bus.StackToString() + "\r\r\n");
+            //Вызываем метод очищения стека
             bus.StackClear();
+            //Если COM-порт открыт, то пишем содержимое массива msg в порт,
+            //если порт не доступен, выводим сообщение об ошибке
             if (_serialPort.IsOpen) _serialPort.Write(msg, 0, msg.Length);
             else MessageBox.Show("Порт не открыт", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
@@ -166,11 +150,20 @@ namespace spbusTerminal
 
         private void _serialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            //Здесь обрабатываем полученные данные
+            /**
+             * Здесь принимаем поступающие на порт байты
+            **/
+            //Инициализируем переменную количеством принятых байтов и
+            //объявляем массив buff с такой размерностью
             int BytesRead = _serialPort.BytesToRead;
             byte[] buff = new byte[BytesRead];
+            //Считываем в массив buff с самого его начала байты, в количестве определенном в BytesRead
             _serialPort.Read(buff, 0, BytesRead);
+            //Добавляем принятые байты в стек
             bus.AddToStack(buff);
+            //Проверяем на знаки конца сообщения, посредством метода проверяющего стек на конец сообщения
+            //а затем если конец сообщения найден, вызываем метод выводящий содержимое стека в шестнадцатиричном виде,
+            //или текстовом в консоль, в зависимости от выбранного режима
             if (bus.Stack_ifMsgEnd())
             {
                 if (HEX_radioButton.Checked) Console_textBox.Invoke(new Action(() => {Console_textBox.AppendText(Port_comboBox.Text + " => " + bus.StackToHEX());}));
@@ -184,6 +177,10 @@ namespace spbusTerminal
         }
     }
 }
+/**
+ * Класс Spbus
+ * ******************************************************************
+**/
 class Spbus
 {
     byte[] MsgStack = new byte[1000];
