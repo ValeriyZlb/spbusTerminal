@@ -183,6 +183,7 @@ namespace spbusTerminal
 **/
 class Spbus
 {
+    //Объявляем массив для стека и переменную количества байт содержащиеся в стеке
     byte[] MsgStack = new byte[1000];
     public int StackBytes_count = 0;
     public short CrCode(byte[] msg, out byte crc1, out byte crc2)
