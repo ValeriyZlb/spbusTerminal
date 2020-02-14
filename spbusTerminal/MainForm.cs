@@ -8,6 +8,7 @@ namespace spbusTerminal
     public partial class MainForm : Form
     {
         // Объявляем переменную bus принадлежащую классу Spbus, доступную во всем коде
+        Data_frm dataform= new Data_frm();
         Spbus bus = new Spbus();
         public MainForm()
         {
@@ -169,8 +170,31 @@ namespace spbusTerminal
                 if (HEX_radioButton.Checked) Console_textBox.Invoke(new Action(() => {Console_textBox.AppendText(Port_comboBox.Text + " => " + bus.StackToHEX());}));
                 else if (Text_radioButton.Checked) Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText(Port_comboBox.Text + " => " + bus.StackToString()); }));
                 string Resmsg = bus.StackToString();
-                if (bus.MsgBuilder(out int DAD, out int SAD, out int FNC, out string[] mess) > 0) ;
-
+                if (bus.MsgBuilder(out int DAD, out int SAD, out int FNC, out string[] mess) == 32)
+                {
+                    string[] para = mess[0].Split('\t');
+                    string[] data1 = mess[1].Split('\t');
+                    string[] data2 = mess[2].Split('\t');
+                    string dat1 = data1[1] + "." + data1[2] + "." + data1[3] + " " + data1[4] + ":" + data1[5] + ":" + data1[6];
+                    string dat2 = data2[1] + "." + data2[2] + "." + data2[3] + " " + data2[4] + ":" + data2[5] + ":" + data2[6];
+                    string.Join("", data1);
+                    DateTime dt1, dt2;
+                    int ch, pr;
+                    int len = mess.Length - 5;
+                    double[] dates = new double[len];
+                    ch = int.Parse(para[1]);
+                    pr = int.Parse(para[2]);
+                    dt1 = Convert.ToDateTime(dat1.ToString());
+                    dt2 = Convert.ToDateTime(dat2.ToString());
+                    for (int i = 0; i < len; i++)
+                    {
+                        mess[i + 4] = mess[i + 4].Remove(0, 1);
+                        dates[i] = double.Parse(mess[i + 4], System.Globalization.CultureInfo.InvariantCulture.NumberFormat);
+                    }
+                    //Добавляем данные на форму Данных
+                    
+                }
+                
             }
         }
 
@@ -274,6 +298,7 @@ class Spbus
         {
             result += (char)MsgStack[i];
         }
+
         return result;
     }
     public void StackClear()
@@ -310,16 +335,21 @@ class Spbus
         SAD = 0;
         FNC = 0;
         int msgbeg;
+        string msg = "";
         mess = new string[] { "" };
         DAD = MsgStack[this.StackCheck(pat1)+2];
         SAD = MsgStack[this.StackCheck(pat1) + 3];
         FNC = MsgStack[this.StackCheck(pat2) + 2];
         msgbeg = MsgStack[this.StackCheck(pat3) + 2];
         for (int i = msgbeg; i < StackBytes_count; i++)
-            mess[0] += (char)MsgStack[i];
-        mess[0] = mess[0].Replace('\t', ' ');
-        mess[0] = mess[0].Replace('\f', '\n');
-        MessageBox.Show(mess[0]);
-        return 0;
+            msg += (char)MsgStack[i];
+        mess = msg.Split('\f');
+        for (int i = 0; i < mess.Length; i++)
+        {
+            byte[] bytes = Encoding.GetEncoding(855).GetBytes(mess[i]);
+            mess[i] = Encoding.GetEncoding(1251).GetString(bytes);
+        }
+
+        return FNC;
     }
 }
