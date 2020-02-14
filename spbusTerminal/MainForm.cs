@@ -168,6 +168,9 @@ namespace spbusTerminal
             {
                 if (HEX_radioButton.Checked) Console_textBox.Invoke(new Action(() => {Console_textBox.AppendText(Port_comboBox.Text + " => " + bus.StackToHEX());}));
                 else if (Text_radioButton.Checked) Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText(Port_comboBox.Text + " => " + bus.StackToString()); }));
+                string Resmsg = bus.StackToString();
+                if (bus.MsgBuilder(out int DAD, out int SAD, out int FNC, out string[] mess) > 0) ;
+
             }
         }
 
@@ -247,6 +250,7 @@ class Spbus
     {
         Array.Copy(buff, 0, MsgStack, StackBytes_count, buff.Length);
         StackBytes_count += buff.Length;
+        for (int i = 0; i < 0; i++) ;
     }
     public bool Stack_ifMsgEnd()
     {
@@ -272,15 +276,50 @@ class Spbus
         }
         return result;
     }
-    public string StackToString2()
-    {
-        byte[] bytes= new byte[StackBytes_count];
-        Array.Copy(MsgStack, 0, bytes, 0, StackBytes_count);
-        return Encoding.GetEncoding(866).GetString(bytes); ;
-    }
     public void StackClear()
     {
         Array.Clear(MsgStack, 0, MsgStack.Length);
         StackBytes_count = 0;
+    }
+    public int StackCheck(byte[]searchpat)
+    {
+        byte[] msg = MsgStack;
+        //Проверяем чтобы образец не был больше массива для поиска
+        if (searchpat.Length > msg.Length) return -1;
+        for (int i = 0; i < msg.Length - searchpat.Length; i++)
+        {
+            bool found = true;
+            for (int j = 0; j < searchpat.Length; j++)
+            {
+                if (msg[i + j] != searchpat[j])
+                {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) return i;
+        }
+        return -1;
+    }
+    public int MsgBuilder(out int DAD, out int SAD, out int FNC, out string[] mess)
+    {
+        byte[] pat1 = { 16, 1 };
+        byte[] pat2 = { 16, 31 };
+        byte[] pat3 = { 16, 2 };
+        DAD = 0;
+        SAD = 0;
+        FNC = 0;
+        int msgbeg;
+        mess = new string[] { "" };
+        DAD = MsgStack[this.StackCheck(pat1)+2];
+        SAD = MsgStack[this.StackCheck(pat1) + 3];
+        FNC = MsgStack[this.StackCheck(pat2) + 2];
+        msgbeg = MsgStack[this.StackCheck(pat3) + 2];
+        for (int i = msgbeg; i < StackBytes_count; i++)
+            mess[0] += (char)MsgStack[i];
+        mess[0] = mess[0].Replace('\t', ' ');
+        mess[0] = mess[0].Replace('\f', '\n');
+        MessageBox.Show(mess[0]);
+        return 0;
     }
 }
