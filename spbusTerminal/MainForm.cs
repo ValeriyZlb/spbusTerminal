@@ -22,7 +22,7 @@ namespace spbusTerminal
             string[] PortParity = { "Even", "Odd", "None", "Mark", "Space" };
             string[] PortStopBits = { "0", "1", "1.5", "2" };
             string[] PortDataBits = { "5", "6", "7", "8" };
-            string[] FNCs = { "18", "19", "21" };
+            string[] FNCs = { "19", "18" };
             //Заполнение combobox порта списком доступных для подключения портов, полученый методом GetPortNames 
             Port_comboBox.Items.AddRange(SerialPort.GetPortNames());
             //Заполняем часть combobox-ов настроек порта (данными из массивов строк объявленых и инициализированных выше)
@@ -124,9 +124,7 @@ namespace spbusTerminal
 
             //Инициализируеем строку сообщения из соответствующего текстового поля на форме
             //и заменяем в ней пробелы на \t (09h), а знаки ! на \f (0Ch)
-            string SendMsg = Send_textBox.Text;
-            SendMsg = SendMsg.Replace(" ", "\t");
-            SendMsg = SendMsg.Replace("!", "\f");
+            string SendMsg = Send_textBox.Text.Replace(" ", "\t").Replace("!", "\f");
             
             //Вызываем метод CreateMessage для создания цельного сообщения из кусочков
             //и записываем его в байтовый массив msg
