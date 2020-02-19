@@ -8,7 +8,6 @@ namespace spbusTerminal
     public partial class MainForm : Form
     {
         // Объявляем переменную bus принадлежащую классу Spbus, доступную во всем коде
-        Data_frm dataform= new Data_frm();
         Spbus bus = new Spbus();
         public MainForm()
         {
@@ -192,9 +191,27 @@ namespace spbusTerminal
                         dates[i] = double.Parse(mess[i + 4], System.Globalization.CultureInfo.InvariantCulture.NumberFormat);
                     }
                     //Добавляем данные на форму Данных
-                    
+                    string[] row = { "Hello", "World" };
+                    Dates_dataGridView.Rows.Add(dt1.Day+"."+dt1.Month+"."+dt1.Year, dt2.TimeOfDay, para[0],para[1]);
                 }
-                
+                else
+                {
+                    string[] para = mess[0].Split('\t');
+                    string[] datas = new string[6];
+                    Dates_dataGridView.ColumnCount = mess.Length+2;
+                    Dates_dataGridView.Columns[0].Name = "Дата";
+                    Dates_dataGridView.Columns[1].Name = "Время";
+                    Dates_dataGridView.Columns[2].Name = "Канал";
+                    Dates_dataGridView.Columns[3].Name = "Параметр";
+                    for (int i = 0; i < mess.Length-2; i++)
+                    {
+                        datas = mess[i+1].Split('\t');
+                        Dates_dataGridView.Columns[i + 4].Name = datas[0] + datas[1];
+
+                    }
+                }
+
+
             }
         }
 

@@ -59,12 +59,21 @@
             this._serialPort = new System.IO.Ports.SerialPort(this.components);
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.btr_toolStripStatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
+            this.Main_tabControl = new System.Windows.Forms.TabControl();
+            this.Main_tabPage = new System.Windows.Forms.TabPage();
+            this.Dates_tabPage = new System.Windows.Forms.TabPage();
+            this.Settings_tabPage = new System.Windows.Forms.TabPage();
+            this.Dates_dataGridView = new System.Windows.Forms.DataGridView();
             this.SerialPortComm_groupBox.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.SAD_numericUpDown)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.DAD_numericUpDown)).BeginInit();
             this.Optiona_groupBox.SuspendLayout();
             this.Mode_groupBox.SuspendLayout();
             this.statusStrip1.SuspendLayout();
+            this.Main_tabControl.SuspendLayout();
+            this.Main_tabPage.SuspendLayout();
+            this.Dates_tabPage.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.Dates_dataGridView)).BeginInit();
             this.SuspendLayout();
             // 
             // SerialPortComm_groupBox
@@ -79,7 +88,7 @@
             this.SerialPortComm_groupBox.Controls.Add(this.Send_button);
             this.SerialPortComm_groupBox.Controls.Add(this.Send_textBox);
             this.SerialPortComm_groupBox.Controls.Add(this.Console_textBox);
-            this.SerialPortComm_groupBox.Location = new System.Drawing.Point(13, 13);
+            this.SerialPortComm_groupBox.Location = new System.Drawing.Point(6, 6);
             this.SerialPortComm_groupBox.Name = "SerialPortComm_groupBox";
             this.SerialPortComm_groupBox.Size = new System.Drawing.Size(652, 321);
             this.SerialPortComm_groupBox.TabIndex = 0;
@@ -184,7 +193,7 @@
             // ClosePort_button
             // 
             this.ClosePort_button.Enabled = false;
-            this.ClosePort_button.Location = new System.Drawing.Point(584, 340);
+            this.ClosePort_button.Location = new System.Drawing.Point(577, 333);
             this.ClosePort_button.Name = "ClosePort_button";
             this.ClosePort_button.Size = new System.Drawing.Size(75, 23);
             this.ClosePort_button.TabIndex = 1;
@@ -204,7 +213,7 @@
             this.Optiona_groupBox.Controls.Add(this.BaudRate_label);
             this.Optiona_groupBox.Controls.Add(this.Port_comboBox);
             this.Optiona_groupBox.Controls.Add(this.Port_label);
-            this.Optiona_groupBox.Location = new System.Drawing.Point(671, 13);
+            this.Optiona_groupBox.Location = new System.Drawing.Point(664, 6);
             this.Optiona_groupBox.Name = "Optiona_groupBox";
             this.Optiona_groupBox.Size = new System.Drawing.Size(119, 244);
             this.Optiona_groupBox.TabIndex = 2;
@@ -303,7 +312,7 @@
             // 
             // OpenPort_button
             // 
-            this.OpenPort_button.Location = new System.Drawing.Point(671, 340);
+            this.OpenPort_button.Location = new System.Drawing.Point(664, 333);
             this.OpenPort_button.Name = "OpenPort_button";
             this.OpenPort_button.Size = new System.Drawing.Size(75, 23);
             this.OpenPort_button.TabIndex = 3;
@@ -315,7 +324,7 @@
             // 
             this.Mode_groupBox.Controls.Add(this.Text_radioButton);
             this.Mode_groupBox.Controls.Add(this.HEX_radioButton);
-            this.Mode_groupBox.Location = new System.Drawing.Point(671, 263);
+            this.Mode_groupBox.Location = new System.Drawing.Point(664, 256);
             this.Mode_groupBox.Name = "Mode_groupBox";
             this.Mode_groupBox.Size = new System.Drawing.Size(119, 71);
             this.Mode_groupBox.TabIndex = 4;
@@ -352,9 +361,9 @@
             // 
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.btr_toolStripStatusLabel});
-            this.statusStrip1.Location = new System.Drawing.Point(0, 367);
+            this.statusStrip1.Location = new System.Drawing.Point(0, 420);
             this.statusStrip1.Name = "statusStrip1";
-            this.statusStrip1.Size = new System.Drawing.Size(802, 22);
+            this.statusStrip1.Size = new System.Drawing.Size(806, 22);
             this.statusStrip1.TabIndex = 5;
             this.statusStrip1.Text = "statusStrip1";
             // 
@@ -364,17 +373,67 @@
             this.btr_toolStripStatusLabel.Size = new System.Drawing.Size(84, 17);
             this.btr_toolStripStatusLabel.Text = "0 bytes to read";
             // 
+            // Main_tabControl
+            // 
+            this.Main_tabControl.Controls.Add(this.Main_tabPage);
+            this.Main_tabControl.Controls.Add(this.Dates_tabPage);
+            this.Main_tabControl.Controls.Add(this.Settings_tabPage);
+            this.Main_tabControl.Location = new System.Drawing.Point(0, 0);
+            this.Main_tabControl.Name = "Main_tabControl";
+            this.Main_tabControl.SelectedIndex = 0;
+            this.Main_tabControl.Size = new System.Drawing.Size(805, 418);
+            this.Main_tabControl.TabIndex = 6;
+            // 
+            // Main_tabPage
+            // 
+            this.Main_tabPage.Controls.Add(this.SerialPortComm_groupBox);
+            this.Main_tabPage.Controls.Add(this.ClosePort_button);
+            this.Main_tabPage.Controls.Add(this.Mode_groupBox);
+            this.Main_tabPage.Controls.Add(this.Optiona_groupBox);
+            this.Main_tabPage.Controls.Add(this.OpenPort_button);
+            this.Main_tabPage.Location = new System.Drawing.Point(4, 22);
+            this.Main_tabPage.Name = "Main_tabPage";
+            this.Main_tabPage.Padding = new System.Windows.Forms.Padding(3);
+            this.Main_tabPage.Size = new System.Drawing.Size(797, 392);
+            this.Main_tabPage.TabIndex = 0;
+            this.Main_tabPage.Text = "Основная";
+            this.Main_tabPage.UseVisualStyleBackColor = true;
+            // 
+            // Dates_tabPage
+            // 
+            this.Dates_tabPage.Controls.Add(this.Dates_dataGridView);
+            this.Dates_tabPage.Location = new System.Drawing.Point(4, 22);
+            this.Dates_tabPage.Name = "Dates_tabPage";
+            this.Dates_tabPage.Padding = new System.Windows.Forms.Padding(3);
+            this.Dates_tabPage.Size = new System.Drawing.Size(797, 392);
+            this.Dates_tabPage.TabIndex = 1;
+            this.Dates_tabPage.Text = "Даные";
+            this.Dates_tabPage.UseVisualStyleBackColor = true;
+            // 
+            // Settings_tabPage
+            // 
+            this.Settings_tabPage.Location = new System.Drawing.Point(4, 22);
+            this.Settings_tabPage.Name = "Settings_tabPage";
+            this.Settings_tabPage.Size = new System.Drawing.Size(797, 392);
+            this.Settings_tabPage.TabIndex = 2;
+            this.Settings_tabPage.Text = "Настройки";
+            this.Settings_tabPage.UseVisualStyleBackColor = true;
+            // 
+            // Dates_dataGridView
+            // 
+            this.Dates_dataGridView.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.Dates_dataGridView.Location = new System.Drawing.Point(6, 6);
+            this.Dates_dataGridView.Name = "Dates_dataGridView";
+            this.Dates_dataGridView.Size = new System.Drawing.Size(784, 335);
+            this.Dates_dataGridView.TabIndex = 0;
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(802, 389);
+            this.ClientSize = new System.Drawing.Size(806, 442);
+            this.Controls.Add(this.Main_tabControl);
             this.Controls.Add(this.statusStrip1);
-            this.Controls.Add(this.Mode_groupBox);
-            this.Controls.Add(this.OpenPort_button);
-            this.Controls.Add(this.Optiona_groupBox);
-            this.Controls.Add(this.ClosePort_button);
-            this.Controls.Add(this.SerialPortComm_groupBox);
             this.Name = "MainForm";
             this.Text = "spbusTerminal";
             this.Load += new System.EventHandler(this.MainForm_Load);
@@ -388,6 +447,10 @@
             this.Mode_groupBox.PerformLayout();
             this.statusStrip1.ResumeLayout(false);
             this.statusStrip1.PerformLayout();
+            this.Main_tabControl.ResumeLayout(false);
+            this.Main_tabPage.ResumeLayout(false);
+            this.Dates_tabPage.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.Dates_dataGridView)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -425,6 +488,11 @@
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel btr_toolStripStatusLabel;
         private System.Windows.Forms.Button Test_button;
+        private System.Windows.Forms.TabControl Main_tabControl;
+        private System.Windows.Forms.TabPage Main_tabPage;
+        private System.Windows.Forms.TabPage Dates_tabPage;
+        private System.Windows.Forms.TabPage Settings_tabPage;
+        private System.Windows.Forms.DataGridView Dates_dataGridView;
     }
 }
 
