@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.IO.Ports;
 using System.Text;
 using System.Windows.Forms;
@@ -9,6 +10,9 @@ namespace spbusTerminal
     {
         // Объявляем переменную bus принадлежащую классу Spbus, доступную во всем коде
         Spbus bus = new Spbus();
+        byte[] ByteBuffer = new byte[4096];
+        int buffseek = 0;
+        bool buff_beginmsg = false, buff_endmsg = false, buff_crcmsg = false;
         public MainForm()
         {
             InitializeComponent();
@@ -148,9 +152,73 @@ namespace spbusTerminal
 
         private void _serialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
+            byte DLE = 0x10, SOH = 0x1, STX = 0x02, ETX = 0x03;
+            int ByteToRead = _serialPort.BytesToRead;
+            byte[] buff = new byte[ByteToRead];
+
+            _serialPort.Read(buff, 0, ByteToRead);
+
+            Array.Copy(buff, 0, ByteBuffer, buffseek, ByteToRead);
+            buffseek += ByteToRead;
+
+            // Сканируем буфер на наличи кодов начала, конца сообщения и его контрольных чисел, с установкой флагов
+            for (int i = 0; i < buffseek; i++)
+            {
+                if (ByteBuffer[i] == DLE && ByteBuffer[i + 1] == SOH) buff_beginmsg = true;
+                if (ByteBuffer[i] == DLE && ByteBuffer[i + 1] == ETX) buff_endmsg = true;
+                if (ByteBuffer[i] == DLE && ByteBuffer[i + 1] == ETX && ByteBuffer[i+2] > 0 && ByteBuffer[i+3] > 0) buff_crcmsg = true;
+            }
+            // Проверяем наличие начала, конца сообщения и его контрольных чисел
+            // если успешно, то выполняем вложеный код
+            if (buff_beginmsg && buff_endmsg && buff_crcmsg)
+            {
+                // Находим индексы вхождения кодов soh, isi, stx и etx в буфере приёма
+                int soh = bus.FindWordBytes(ByteBuffer, 0x1001);
+                int isi = bus.FindWordBytes(ByteBuffer, 0x101F);
+                int stx = bus.FindWordBytes(ByteBuffer, 0x1002);
+                int etx = bus.FindWordBytes(ByteBuffer, 0x1003);
+
+                // Объявляем массив для целого сообщения и переносим в него сообщение из буфера приёма
+                byte[] finalbuff = new byte[etx+4];
+                Array.Copy(ByteBuffer, soh, finalbuff, 0, etx + 4);
+
+                // Объявляем массивы заголовка, тела и контрольного числа
+                byte[] Head = new byte[stx];
+                byte[] Body = new byte[etx-stx+2];
+                byte[] CRC = new byte[2];
+
+                // Заполняем массывы заголовка, тела и контрольного числа
+                Array.Copy(finalbuff, soh, Head, 0, stx);
+                Array.Copy(finalbuff, stx, Body, 0, etx-stx+2);
+                Array.Copy(finalbuff, etx + 2, CRC, 0, 2);
+
+                string result = "";
+                for (int i = 0; i < finalbuff.Length; i++)
+                {
+                    result += finalbuff[i].ToString("X2") + " ";
+                }
+                Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText("Message Received: => {" + result + " }"); }));
+                
+                // Меняем местами значения в массиве CRC и сравниваем его сподсчитаным функцией CrCode2 контрольным числом
+                // Если коды верны, то выполняем вложенный код
+                Array.Reverse(CRC);
+                if (BitConverter.ToInt16(CRC, 0) == bus.CrCode2(finalbuff))
+                {
+                    Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText(" CRC: OK"); }));
+                } else Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText(" CRC: FAILED"); }));
+
+                // Обработка-----------------------------------
+                string newStr = Encoding.GetEncoding(866).GetString(finalbuff);
+                string bodyStr = Encoding.GetEncoding(866).GetString(Body);
+                // Удаляем символы DLE STX и первый TAB в начале сообщения и DLE ETX в конце сообщения
+                bodyStr = bodyStr.Remove(0, 3);
+                bodyStr = bodyStr.Remove(bodyStr.Length-2, 2);
+                MessageBox.Show(bodyStr);
+
+
+            }
             /**
-             * Здесь принимаем поступающие на порт байты
-            **/
+            //Здесь принимаем поступающие на порт байты
             //Инициализируем переменную количеством принятых байтов и
             //объявляем массив buff с такой размерностью
             int BytesRead = _serialPort.BytesToRead;
@@ -208,9 +276,8 @@ namespace spbusTerminal
 
                     }
                 }
-
-
             }
+            **/
         }
 
         private void Test_button_Click(object sender, EventArgs e)
@@ -243,6 +310,23 @@ class Spbus
         }
         crc1 = (byte)(crc >> 8);
         crc2 = (byte)crc;
+        return (short)(crc & 0xFFFF);
+    }
+    public short CrCode2(byte[] msg)
+    {
+        int j, crc = 0, count = 2;
+        int len = msg.Length-4;
+        while (len-- > 0)
+        {
+            crc = crc ^ msg[count++] << 8;
+            for (j = 0; j < 8; j++)
+            {
+                if ((crc & 0x8000) == 0x8000) crc = (crc << 1) ^ 0x1021;
+                else crc <<= 1;
+            }
+        }
+        byte crc1 = (byte)(crc >> 8);
+        byte crc2 = (byte)crc;
         return (short)(crc & 0xFFFF);
     }
     public byte[] CompMessage(char[] msg, short crc)
@@ -366,5 +450,36 @@ class Spbus
         }
 
         return FNC;
+    }
+    public int FindWordBytes(byte[] a, short x)
+    {
+        byte[] b = new byte[2];
+        b[1] = (byte)(x & 0x00FF);
+        b[0] = (byte)(x >> 8);
+
+        if (b.Length > a.Length) return -1;
+        for (int i = 0; i < a.Length - b.Length; i++)
+        {
+            bool found = true;
+            for (int j = 0; j < b.Length; j++)
+            {
+                if (a[i + j] != b[j])
+                {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) return i;
+        }
+        return -1;
+    }
+}
+class BaseOfDates
+{
+    string[,] Base = new string[1,1];
+    
+    public void AddTitle()
+    {
+
     }
 }
