@@ -1,23 +1,23 @@
 ﻿using System;
-using System.IO;
 using System.IO.Ports;
 using System.Text;
 using System.Windows.Forms;
+using System.Threading;
 
 namespace spbusTerminal
 {
+
     public partial class MainForm : Form
     {
         // Объявляем переменную bus принадлежащую классу Spbus, доступную во всем коде
         Spbus bus = new Spbus();
+        Messages work_msg = new Messages();
         byte[] ByteBuffer = new byte[4096];
         int buffseek = 0;
-        bool buff_beginmsg = false, buff_endmsg = false, buff_crcmsg = false;
         public MainForm()
         {
             InitializeComponent();
         }
-
         private void MainForm_Load(object sender, EventArgs e)
         {
             //Раскидываем управление по умолчанию на форме и
@@ -47,7 +47,7 @@ namespace spbusTerminal
             else OpenPort_button.Enabled = false;
             //Установка настроек вида сообщений в консоли: в  шестнадцатиричном, или текстовом виде
             FNC_comboBox.SelectedIndex = 0;
-            Text_radioButton.Checked = true;
+            HEX_radioButton.Checked = true;
             /**
              * Send_textBox.Text = "HT0HT65530FFHT5HT2HT20HT8HT1HT0FF"; //Первый вариант форматирования сообщений
              * Собираем строку запроса
@@ -59,7 +59,7 @@ namespace spbusTerminal
              *  HT_Channel_HT_Parameter_FFHT_Day_HT_Mounth_HT_Year_HT_Hour_HT_Minutes_HT_Seconds_FF
              *  где Channel -канал, Parameter - параметр, Day - день, Mounth - месяц, Year - год, Hour - часы, Minutes - минуты, Seconds - секунды
             **/
-            Send_textBox.Text = " 0 65530! 5 2 20 8 1 0!";
+            Send_textBox.Text = " 0 65530! 5 2 20 8 0 0!";
         }
 
         private void OpenPort_button_Click(object sender, EventArgs e)
@@ -152,7 +152,6 @@ namespace spbusTerminal
 
         private void _serialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            byte DLE = 0x10, SOH = 0x1, STX = 0x02, ETX = 0x03;
             int ByteToRead = _serialPort.BytesToRead;
             byte[] buff = new byte[ByteToRead];
 
@@ -161,36 +160,24 @@ namespace spbusTerminal
             Array.Copy(buff, 0, ByteBuffer, buffseek, ByteToRead);
             buffseek += ByteToRead;
 
-            // Сканируем буфер на наличи кодов начала, конца сообщения и его контрольных чисел, с установкой флагов
-            for (int i = 0; i < buffseek; i++)
-            {
-                if (ByteBuffer[i] == DLE && ByteBuffer[i + 1] == SOH) buff_beginmsg = true;
-                if (ByteBuffer[i] == DLE && ByteBuffer[i + 1] == ETX) buff_endmsg = true;
-                if (ByteBuffer[i] == DLE && ByteBuffer[i + 1] == ETX && ByteBuffer[i+2] > 0 && ByteBuffer[i+3] > 0) buff_crcmsg = true;
-            }
             // Проверяем наличие начала, конца сообщения и его контрольных чисел
             // если успешно, то выполняем вложеный код
-            if (buff_beginmsg && buff_endmsg && buff_crcmsg)
+            if (work_msg.isFullMessage(ByteBuffer, buffseek))
             {
                 // Находим индексы вхождения кодов soh, isi, stx и etx в буфере приёма
-                int soh = bus.FindWordBytes(ByteBuffer, 0x1001);
-                int isi = bus.FindWordBytes(ByteBuffer, 0x101F);
-                int stx = bus.FindWordBytes(ByteBuffer, 0x1002);
-                int etx = bus.FindWordBytes(ByteBuffer, 0x1003);
+                int soh = work_msg.GetSOH(ByteBuffer);
+                //int isi = work_msg.GetISI(ByteBuffer);
+                int stx = work_msg.GetSTX(ByteBuffer);
+                int etx = work_msg.GetETX(ByteBuffer);
 
                 // Объявляем массив для целого сообщения и переносим в него сообщение из буфера приёма
                 byte[] finalbuff = new byte[etx+4];
                 Array.Copy(ByteBuffer, soh, finalbuff, 0, etx + 4);
 
-                // Объявляем массивы заголовка, тела и контрольного числа
-                byte[] Head = new byte[stx];
-                byte[] Body = new byte[etx-stx+2];
-                byte[] CRC = new byte[2];
-
-                // Заполняем массывы заголовка, тела и контрольного числа
-                Array.Copy(finalbuff, soh, Head, 0, stx);
-                Array.Copy(finalbuff, stx, Body, 0, etx-stx+2);
-                Array.Copy(finalbuff, etx + 2, CRC, 0, 2);
+                // Объявляем и заполняем массивы заголовка, тела и контрольного числа
+                byte[] Head = work_msg.GetHead(finalbuff, soh, stx);
+                byte[] Body = work_msg.GetBody(finalbuff, stx, etx - stx + 2);
+                byte[] CRC = work_msg.GetBody(finalbuff, etx + 2, 2);
 
                 string result = "";
                 for (int i = 0; i < finalbuff.Length; i++)
@@ -204,85 +191,71 @@ namespace spbusTerminal
                 Array.Reverse(CRC);
                 if (BitConverter.ToInt16(CRC, 0) == bus.CrCode2(finalbuff))
                 {
-                    Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText(" CRC: OK"); }));
-                } else Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText(" CRC: FAILED"); }));
+                    Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText(" CRC: OK" + "\r\n"); }));
+                } else Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText(" CRC: FAILED" + "\r\n"); }));
 
-                // Обработка-----------------------------------
-                string newStr = Encoding.GetEncoding(866).GetString(finalbuff);
-                string bodyStr = Encoding.GetEncoding(866).GetString(Body);
-                // Удаляем символы DLE STX и первый TAB в начале сообщения и DLE ETX в конце сообщения
-                bodyStr = bodyStr.Remove(0, 3);
-                bodyStr = bodyStr.Remove(bodyStr.Length-2, 2);
-                MessageBox.Show(bodyStr);
+                string[] result_str = work_msg.GetStrings(Body);
+                for (int i = 0; i < result_str.Length; i++)
+                    Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText(result_str[i] + "\r\n"); }));
+                //MessageBox.Show(bodyStr);
 
-
+                Array.Clear(ByteBuffer, 0, ByteBuffer.Length);
+                buffseek = 0;
+                work_msg.DropSendFlag();
             }
-            /**
-            //Здесь принимаем поступающие на порт байты
-            //Инициализируем переменную количеством принятых байтов и
-            //объявляем массив buff с такой размерностью
-            int BytesRead = _serialPort.BytesToRead;
-            byte[] buff = new byte[BytesRead];
-            //Считываем в массив buff с самого его начала байты, в количестве определенном в BytesRead
-            _serialPort.Read(buff, 0, BytesRead);
-            //Добавляем принятые байты в стек
-            bus.AddToStack(buff);
-            //Проверяем на знаки конца сообщения, посредством метода проверяющего стек на конец сообщения
-            //а затем если конец сообщения найден, вызываем метод выводящий содержимое стека в шестнадцатиричном виде,
-            //или текстовом в консоль, в зависимости от выбранного режима
-            if (bus.Stack_ifMsgEnd())
-            {
-                if (HEX_radioButton.Checked) Console_textBox.Invoke(new Action(() => {Console_textBox.AppendText(Port_comboBox.Text + " => " + bus.StackToHEX());}));
-                else if (Text_radioButton.Checked) Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText(Port_comboBox.Text + " => " + bus.StackToString()); }));
-                string Resmsg = bus.StackToString();
-                if (bus.MsgBuilder(out int DAD, out int SAD, out int FNC, out string[] mess) == 32)
-                {
-                    string[] para = mess[0].Split('\t');
-                    string[] data1 = mess[1].Split('\t');
-                    string[] data2 = mess[2].Split('\t');
-                    string dat1 = data1[1] + "." + data1[2] + "." + data1[3] + " " + data1[4] + ":" + data1[5] + ":" + data1[6];
-                    string dat2 = data2[1] + "." + data2[2] + "." + data2[3] + " " + data2[4] + ":" + data2[5] + ":" + data2[6];
-                    string.Join("", data1);
-                    DateTime dt1, dt2;
-                    int ch, pr;
-                    int len = mess.Length - 5;
-                    double[] dates = new double[len];
-                    ch = int.Parse(para[1]);
-                    pr = int.Parse(para[2]);
-                    dt1 = Convert.ToDateTime(dat1.ToString());
-                    dt2 = Convert.ToDateTime(dat2.ToString());
-                    for (int i = 0; i < len; i++)
-                    {
-                        mess[i + 4] = mess[i + 4].Remove(0, 1);
-                        dates[i] = double.Parse(mess[i + 4], System.Globalization.CultureInfo.InvariantCulture.NumberFormat);
-                    }
-                    //Добавляем данные на форму Данных
-                    string[] row = { "Hello", "World" };
-                    Dates_dataGridView.Rows.Add(dt1.Day+"."+dt1.Month+"."+dt1.Year, dt2.TimeOfDay, para[0],para[1]);
-                }
-                else
-                {
-                    string[] para = mess[0].Split('\t');
-                    string[] datas = new string[6];
-                    Dates_dataGridView.ColumnCount = mess.Length+2;
-                    Dates_dataGridView.Columns[0].Name = "Дата";
-                    Dates_dataGridView.Columns[1].Name = "Время";
-                    Dates_dataGridView.Columns[2].Name = "Канал";
-                    Dates_dataGridView.Columns[3].Name = "Параметр";
-                    for (int i = 0; i < mess.Length-2; i++)
-                    {
-                        datas = mess[i+1].Split('\t');
-                        Dates_dataGridView.Columns[i + 4].Name = datas[0] + datas[1];
-
-                    }
-                }
-            }
-            **/
         }
 
         private void Test_button_Click(object sender, EventArgs e)
         {
             Console_textBox.Clear();
+        }
+
+        private void auto_button_Click(object sender, EventArgs e)
+        {
+            auto_button.Enabled = false;
+            //AutoThread kuku = new AutoThread("AutoThread", work_msg);
+            Thread AutoThr = new Thread(Lol);
+            AutoThr.Start();
+        }
+        private void Lol()
+        {
+            Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText("Опрос Начат" + "\r\n"); }));
+            Thread.Sleep(2000);
+            for (int i = 8; i < 12; i++)
+            {
+                work_msg.SetSendFlag();
+                if (work_msg.isSendFlag())
+                {
+                    Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText("Запрос данных..." + "\r\n"); }));
+                    
+                    byte SAD = (byte)((byte)SAD_numericUpDown.Value | 0x80);
+                    byte DAD = (byte)DAD_numericUpDown.Value;
+                    byte FNC = 0x18;
+                    string SendMsg = "\t0\t65530\f\t5\t2\t20\t"+i+"\t0\t0\f";
+                    byte[] msg = bus.CreateMessage(DAD, SAD, FNC, SendMsg);
+                    bus.StackClear();
+                    bus.AddToStack(msg);
+                    if (HEX_radioButton.Checked) Console_textBox.Invoke(new Action(() => {
+                        Console_textBox.AppendText(bus.StackToHEX() + "\r\r\n"); }));
+                    else if (Text_radioButton.Checked) Console_textBox.AppendText(bus.StackToString() + "\r\r\n");
+                    bus.StackClear();
+                    if (_serialPort.IsOpen) _serialPort.Write(msg, 0, msg.Length);
+                    else
+                    {
+                        Console_textBox.Invoke(new Action(() => {Console_textBox.AppendText("Ошибка: порт не открыт!");}));
+                        break;
+                        //MessageBox.Show("Порт не открыт", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+
+                }
+                while (work_msg.isSendFlag()) 
+                {
+                    Thread.Sleep(1000);
+                }
+                
+            }
+            Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText("Опрос завершён" + "\r\n"); }));
+            auto_button.Invoke(new Action(() => { auto_button.Enabled = true; }));
         }
     }
 }
@@ -472,6 +445,112 @@ class Spbus
             if (found) return i;
         }
         return -1;
+    }
+}
+class Messages
+{
+    bool msgSendFlag = false;
+    public byte[] GetHead(byte[] sourceArray, int sourceIndex, int lenght)
+    {
+        // Объявляем массивы заголовка
+        byte[] Head = new byte[lenght];
+
+        // Заполняем массывы заголовка
+        Array.Copy(sourceArray, sourceIndex, Head, 0, lenght);
+        return Head;
+    }
+    public byte[] GetBody(byte[] sourceArray, int sourceIndex, int lenght)
+    {
+        // Объявляем массивы заголовка
+        byte[] Body = new byte[lenght];
+
+        // Заполняем массывы заголовка
+        Array.Copy(sourceArray, sourceIndex, Body, 0, lenght);
+        return Body;
+    }
+    public byte[] GetCRC(byte[] sourceArray, int sourceIndex, int lenght)
+    {
+        // Объявляем массивы заголовка
+        byte[] CRC = new byte[lenght];
+
+        // Заполняем массывы заголовка
+        Array.Copy(sourceArray, sourceIndex, CRC, 0, lenght);
+        return CRC;
+    }
+    public int GetSOH(byte[] sourceArray)
+    {
+        return FindWordBytes(sourceArray, 0x1001);
+    }
+    public int GetISI(byte[] sourceArray)
+    {
+        return FindWordBytes(sourceArray, 0x101F);
+    }
+    public int GetSTX(byte[] sourceArray)
+    {
+        return FindWordBytes(sourceArray, 0x1002);
+    }
+    public int GetETX(byte[] sourceArray)
+    {
+        return FindWordBytes(sourceArray, 0x1003);
+    }
+    public string[] GetStrings(byte[] sourceArray)
+    {
+        // Получаем строку из буфера байтов в кодировке 866
+        string bodyStr = Encoding.GetEncoding(866).GetString(sourceArray);
+        // Удаляем символы DLE STX и первый TAB в начале сообщения и DLE ETX в конце сообщения
+        bodyStr = bodyStr.Remove(0, 2);
+        bodyStr = bodyStr.Remove(bodyStr.Length - 3, 3);
+        string[] result_str = bodyStr.Split('\f');
+        // Удаляем /t  в начале каждой строки
+        for (int i = 0; i < result_str.Length; i++)
+            result_str[i] = result_str[i].Remove(0, 1);
+        return result_str;
+    }
+    public bool isFullMessage(byte[] sourceArray, int length)
+    {
+        bool beg_msg = false, end_msg = false, crc_msg = false;
+        for (int i = 0; i < length; i++)
+        {
+            if (sourceArray[i] == 0x10 && sourceArray[i + 1] == 0x01) beg_msg = true;
+            if (sourceArray[i] == 0x10 && sourceArray[i + 1] == 0x03) end_msg = true;
+            if (sourceArray[i] == 0x10 && sourceArray[i + 1] == 0x03 
+                && sourceArray[i + 2] > 0 && sourceArray[i + 3] > 0) crc_msg = true;
+        }
+        return (beg_msg && end_msg && crc_msg);
+    }
+    public int FindWordBytes(byte[] a, short x)
+    {
+        byte[] b = new byte[2];
+        b[1] = (byte)(x & 0x00FF);
+        b[0] = (byte)(x >> 8);
+
+        if (b.Length > a.Length) return -1;
+        for (int i = 0; i < a.Length - b.Length; i++)
+        {
+            bool found = true;
+            for (int j = 0; j < b.Length; j++)
+            {
+                if (a[i + j] != b[j])
+                {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) return i;
+        }
+        return -1;
+    }
+    public void SetSendFlag()
+    {
+        msgSendFlag = true;
+    }
+    public void DropSendFlag()
+    {
+        msgSendFlag = false;
+    }
+    public bool isSendFlag()
+    {
+        return msgSendFlag;
     }
 }
 class BaseOfDates
