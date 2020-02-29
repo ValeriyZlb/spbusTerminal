@@ -20,35 +20,17 @@ namespace spbusTerminal
         }
         private void MainForm_Load(object sender, EventArgs e)
         {
-            //Раскидываем управление по умолчанию на форме и
-            //Строки ниже содержат списки возможных настроек COM порта, в combobox-ах
-            string[] BaudRates = { "300", "600", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200" };
-            string[] PortParity = { "Even", "Odd", "None", "Mark", "Space" };
-            string[] PortStopBits = { "0", "1", "1.5", "2" };
-            string[] PortDataBits = { "5", "6", "7", "8" };
-            string[] FNCs = { "19", "18" };
-            //Заполнение combobox порта списком доступных для подключения портов, полученый методом GetPortNames 
-            Port_comboBox.Items.AddRange(SerialPort.GetPortNames());
-            //Заполняем часть combobox-ов настроек порта (данными из массивов строк объявленых и инициализированных выше)
-            BaudRate_comboBox.Items.AddRange(BaudRates);
-            Parity_comboBox.Items.AddRange(PortParity);
-            StopBits_comboBox.Items.AddRange(PortStopBits);
-            DataBits_comboBox.Items.AddRange(PortDataBits);
-            FNC_comboBox.Items.AddRange(FNCs);
-            //Заполняем остальную часть combobox-ов настроек порта цифровыми значениями по умолчанию
-            BaudRate_comboBox.SelectedIndex = 4;
-            Parity_comboBox.SelectedIndex = 2;
-            StopBits_comboBox.SelectedIndex = 1;
-            DataBits_comboBox.SelectedIndex = 3;
-            //Устанавливаем по умолчанию второй в списке COM-порт (для локальных тестов),
-            //только если он есть (второй порт), иначе ставим первый из списа, или блокируем кнопку если порты отсутствуют вовсе
-            if (Port_comboBox.Items.Count > 1) Port_comboBox.SelectedIndex = 1;
-            else if (Port_comboBox.Items.Count > 0) Port_comboBox.SelectedIndex = 0;
-            else OpenPort_button.Enabled = false;
-            //Установка настроек вида сообщений в консоли: в  шестнадцатиричном, или текстовом виде
-            FNC_comboBox.SelectedIndex = 0;
+            // Заполнение компонентов настройки COM порта и выбор параметров по умолчанию.
+            FormControl StartProperties = new FormControl();
+            StartProperties.BaudRatesInit(BaudRate_comboBox);
+            StartProperties.ParityInit(Parity_comboBox);
+            StartProperties.StopBitsInit(StopBits_comboBox);
+            StartProperties.DataBitsInit(DataBits_comboBox);
+            StartProperties.FNCInit(FNC_comboBox);
+            if(!StartProperties.PortInit(Port_comboBox)) OpenPort_button.Enabled = false;
+
             HEX_radioButton.Checked = true;
-            /**
+            /*
              * Send_textBox.Text = "HT0HT65530FFHT5HT2HT20HT8HT1HT0FF"; //Первый вариант форматирования сообщений
              * Собираем строку запроса
              * Поле DataSet состоит из двух указателей. Первый имеет следующую структуру:
@@ -58,7 +40,7 @@ namespace spbusTerminal
              * Формат запроса = пробел - HT (09h), ! - FF (0Ch)
              *  HT_Channel_HT_Parameter_FFHT_Day_HT_Mounth_HT_Year_HT_Hour_HT_Minutes_HT_Seconds_FF
              *  где Channel -канал, Parameter - параметр, Day - день, Mounth - месяц, Year - год, Hour - часы, Minutes - минуты, Seconds - секунды
-            **/
+             */
             Send_textBox.Text = " 0 65530! 5 2 20 8 0 0!";
         }
 
@@ -66,19 +48,18 @@ namespace spbusTerminal
         {
             if (!_serialPort.IsOpen)
             {
-                /**
-                 * Действия совершаеые при нажатии кнопки Open (открытие порта)
-                **/
-                //Если порт закрыт, прописываем в него параметры с формы и открываем
-                int[] BaudRate = { 300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200 };
+                // Если порт закрыт, прописываем в него параметры с формы и открываем.
+                //int[] BaudRate = { 300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200 };
                 int[] port_databits = { 5, 6, 7, 8 };
                 Parity[] port_parity = { Parity.Even, Parity.Mark, Parity.None, Parity.Odd, Parity.Space };
                 StopBits[] port_stopbits = { StopBits.None, StopBits.One, StopBits.OnePointFive, StopBits.Two };
                 _serialPort.PortName = Port_comboBox.Text;
-                _serialPort.BaudRate = BaudRate[BaudRate_comboBox.SelectedIndex];
+                //_serialPort.BaudRate = BaudRate[BaudRate_comboBox.SelectedIndex];
                 _serialPort.Parity = port_parity[Parity_comboBox.SelectedIndex];
                 _serialPort.StopBits = port_stopbits[StopBits_comboBox.SelectedIndex];
                 _serialPort.DataBits = port_databits[DataBits_comboBox.SelectedIndex];
+                _serialPort.BaudRate = Int32.Parse(BaudRate_comboBox.Text);
+
                 //Открываем порт
                 _serialPort.Open();
                 //Если порт благополучно открывается делаем кнопку открытия недоступной,
@@ -119,14 +100,15 @@ namespace spbusTerminal
              *  где Channel -канал, Parameter - параметр, Day - день, Mounth - месяц, Year - год, Hour - часы, Minutes - минуты, Seconds - секунды
             **/
 
-            //Инициалиируем переменные адресов данные из полей на форме,
-            //К адресы SAD побитово добавляем 128, или 80h
-            //А поле FNC переводим из шестнадцатиричной системы в десятичную
+            //Инициализируем переменные адресов данные из полей на форме,
+            //К адресу SAD побитово добавляем 128, или 80h
+            //А поле FNC переводим из шестнадцатеричной системы в десятичную
+            byte[] Head = work_msg.MakeHead((byte)DAD_numericUpDown.Value, (byte)SAD_numericUpDown.Value, byte.Parse(FNC_comboBox.Text, System.Globalization.NumberStyles.HexNumber), "");
             byte SAD = (byte)((byte)SAD_numericUpDown.Value | 0x80);
             byte DAD = (byte)DAD_numericUpDown.Value;
             byte FNC = byte.Parse(FNC_comboBox.Text, System.Globalization.NumberStyles.HexNumber);
 
-            //Инициализируеем строку сообщения из соответствующего текстового поля на форме
+            //Инициализируем строку сообщения из соответствующего текстового поля на форме
             //и заменяем в ней пробелы на \t (09h), а знаки ! на \f (0Ch)
             string SendMsg = Send_textBox.Text.Replace(" ", "\t").Replace("!", "\f");
             
@@ -137,8 +119,8 @@ namespace spbusTerminal
             //Вызываем методы очищения стека и  добавляем туда сообщение
             bus.StackClear();
             bus.AddToStack(msg);
-            //Если выбран режим отображения в шестнадцатиричном виде то выводим содержимое стека в виде
-            //шестнадцаричных чисел, иначе в текстовом виде
+            //Если выбран режим отображения в шестнадцатеричном виде то выводим содержимое стека в виде
+            //шестнадцатеричных чисел, иначе в текстовом виде
             if(HEX_radioButton.Checked) Console_textBox.AppendText(bus.StackToHEX() + "\r\r\n");
             else if (Text_radioButton.Checked) Console_textBox.AppendText(bus.StackToString() + "\r\r\n");
             //Вызываем метод очищения стека
@@ -161,7 +143,7 @@ namespace spbusTerminal
             buffseek += ByteToRead;
 
             // Проверяем наличие начала, конца сообщения и его контрольных чисел
-            // если успешно, то выполняем вложеный код
+            // если успешно, то выполняем вложенный код
             if (work_msg.isFullMessage(ByteBuffer, buffseek))
             {
                 // Находим индексы вхождения кодов soh, isi, stx и etx в буфере приёма
@@ -186,7 +168,7 @@ namespace spbusTerminal
                 }
                 Console_textBox.Invoke(new Action(() => { Console_textBox.AppendText("Message Received: => {" + result + " }"); }));
                 
-                // Меняем местами значения в массиве CRC и сравниваем его сподсчитаным функцией CrCode2 контрольным числом
+                // Меняем местами значения в массиве CRC и сравниваем его с подсчитанным функцией CrCode2 контрольным числом
                 // Если коды верны, то выполняем вложенный код
                 Array.Reverse(CRC);
                 if (BitConverter.ToInt16(CRC, 0) == bus.CrCode2(finalbuff))
@@ -476,6 +458,12 @@ class Messages
         // Заполняем массывы заголовка
         Array.Copy(sourceArray, sourceIndex, CRC, 0, lenght);
         return CRC;
+    }
+    public byte[] MakeHead(byte destAdd, byte sourceAdd, byte FNC, string DataHead)
+    {
+        
+        byte[] Head = Encoding.UTF8.GetBytes(DataHead);
+        return Head;
     }
     public int GetSOH(byte[] sourceArray)
     {
